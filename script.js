@@ -1,30 +1,33 @@
-let question_count = 0;
 
 var quizController = (function(){
+    getItemsFromLocal = function(){
+        let values = [],
+        keys = Object.keys(localStorage),
+        i = keys.length;
+
+        while ( i-- ) {
+            values.push( JSON.parse(localStorage.getItem( String(keys[i]))) );
+        }
+        console.log(values);
+        return values;
+    }
+    question_count = function(){
+        let items = getItemsFromLocal();
+        return items.length;
+    }
     function Question(questionText, options, correctAns){
-        this.id = question_count++;
+        this.id = question_count();
         this.questionText = questionText;
         this.options = options;
         this.correctAns = correctAns;
     }
     return{
+        Question: Question,
         
         saveToLocal: function(question){
-            localStorage.setItem(String(id), JSON.stringify(question));
+            localStorage.setItem(String(question.id), JSON.stringify(question));
         },
-        deleteFromLocal: function(question_id){
-            localStorage.removeItem(String(question_id));
-        },
-        getItemsFromLocal: function(){
-            let values = [],
-            keys = Object.keys(localStorage),
-            i = keys.length;
-
-            while ( i-- ) {
-                values.push( JSON.parse(localStorage.getItem( keys[i])) );
-            }
-            return values;
-        },
+        getItemsFromLocal: getItemsFromLocal,
         getOneItemFromLocal: function(id){
             return JSON.parse(localStorage.getItem(String(id)));
         },
@@ -37,6 +40,9 @@ var quizController = (function(){
                 this.saveToLocal(question);
             }
             
+        },
+        deleteFromLocal: function(question_id){
+            localStorage.removeItem(String(question_id));
         },
         clearLocal: function(){
             let keys = Object.keys(localStorage),
@@ -63,33 +69,43 @@ var UIController = (function(){
             first_name: document.getElementById("firstname"),
             last_name: document.getElementById("lastname"),
             question_box: document.getElementById('new-question-text'),
-            options_container: document.getElementsByClassName("admin-option-container"),
+            options_container: document.querySelector(".admin-options-container"),
+            options: document.getElementsByClassName("admin-option-wrapper"),
             q_insert_btn: document.getElementById("question-insert-btn"),
-            inserted_q_section: document.getElementsByClassName("inserted-questions-wrapper"),
+            inserted_q_section: document.querySelector(".inserted-questions-wrapper"),
             update_btn: document.getElementById("question-update-btn"),
             delete_btn: document.getElementById("question-delete-btn"),
-        }
+        };
         
     
     return{
+        getSelectors: function(){
+            return DOM_CONST;
+        },
         populateQuestionLists: function(q_list){
-            q_list.foreach(function(q){
-                this.insertQuestionInSection(q);
-            })
+            if(q_list.length !== 0){
+                q_list.forEach(function(q){
+                    this.insertQuestionInSection(q);
+                }, this);
+            }
         },
         insertQuestionInSection: function(question){
             let new_p = document.createElement("p");
             new_p.setAttribute("id", "question-p-"+String(question.id));
             new_p.innerHTML = `<span>${String(question.id)}- ${question.questionText}</span><button id="question-${question.id}">Edit</button>`;
-            DOM_CONST.inserted_q_section.append_child(new_p);
+            DOM_CONST.inserted_q_section.appendChild(new_p);
         },
         createNewOption: function(){
             let options_count = document.getElementsByClassName("admin-option-wrapper").length;
+            if (options_count == 6) {
+                alert("Maxium number of options is 6");
+                return;
+            }
             let new_op = document.createElement("div");
             new_op.className = "admin-option-wrapper";
             new_op.innerHTML = `<input type="radio" class="admin-option-${String(options_count)}" name="answer" value="${String(options_count)}">
             <input type="text" class="admin-option admin-option-${String(options_count)}" value="">`;
-            DOM_CONST.options_container.append_child(new_op);
+            DOM_CONST.options_container.appendChild(new_op);
         },
         editQuestionItem: function(question){
             DOM_CONST.update_btn.style.display = "block";
@@ -143,8 +159,8 @@ var UIController = (function(){
                 <input type="radio" class="admin-option-1" name="answer" value="1">
                 <input type="text" class="admin-option admin-option-1" value="">
             </div>`;
-            DOM_CONST.update_btn.style.display = "none";
-            DOM_CONST.delete_btn.style.display = "none";
+            // DOM_CONST.update_btn.style.display = "none";
+            // DOM_CONST.delete_btn.style.display = "none";
             
         },
         goToLandingPage: function(){
@@ -156,35 +172,95 @@ var UIController = (function(){
 })();
 
 var controller = (function(quizCntrl, UICntrl){
-    function create_question(){
-        let quizDom = UICntrl.getCreateQuizDom;
-        quizDom.op_container.addEventListener("focus", function(event){
+
+    const UIselect = UICntrl.getSelectors();
+
+    
+    
+    const loadEventListener = function(){
+
+        UIselect.start_btn.addEventListener('click', startQuizClick);
+        UIselect.options[UIselect.options.length - 1].addEventListener("mouseup", addOptionClick);
+        UIselect.q_insert_btn.addEventListener('click', inserQuestionClick);
+
+
+    }
+    const addOptionClick = function(e){
+        UICntrl.createNewOption();
+        this.removeEventListener('mouseup', addOptionClick);
+
+        UIselect.options[UIselect.options.length - 1].addEventListener('mouseup', addOptionClick);
+    }
+    const startQuizClick = function(e){
+        e.preventDefault();
             
-            quizDom.new_op.setAttribute("class", "admin-option-wrapper");
+        if(UIselect.first_name.value === "" || UIselect.last_name.value === "") {
+            alert("You should complete both inputs");
+        } else if(UIselect.first_name.value === "rozhan" && UIselect.last_name.value === "mirzaei") {
+            UIselect.landing_page.style.display = "none";
+            UIselect.quiz_page.style.display = "none";
+            UIselect.result_page.style.display = "none";
+            loadQuestionsAdmin();
+        } else {
+            if (quizCntrl.getItemsFromLocal().length !== 0){
+                UIselect.landing_page.style.display = "none";
+                UIselect.admin_page.style.display = "none";
+                UIselect.result_page.style.display = "none";
+            } else {
+                alert("There is no quiz available!");
+            }
             
-            quizDom.op_container.append_child(new_div);
+        }
+    }
+    const loadQuestionsAdmin = function(){
+        let q_list = Array.from(quizCntrl.getItemsFromLocal());
+        UICntrl.populateQuestionLists(q_list);
+    }
+    const inserQuestionClick = function(){
+        let text = UIselect.question_box.value;
+        if (text === "") {
+            alert("You must write the question!");
+            return;
+        }
+
+        let answer = "";
+        let values = [];
+        let options = Array.from(document.querySelectorAll("input.admin-option"));
+        let radios = Array.from(document.getElementsByName("answer"));
+        // put value of options in 'values'
+        options.forEach(function(op){
+            if (op.value !== ""){
+                values.push(op.value);
+            }
         });
+        if (values.length < 2) {
+            alert("number of options must be 2 at least.");
+            return;
+        }
+        // Finding answer(radio that is checked)
+        radios.forEach(function(radio, index){
+            if (radio.checked) {
+                answer = options[index].value;
+            }
+        })
+        if (answer === "") {
+            alert("you must choose an answer!");
+            return;
+        }
+        let q = new quizCntrl.Question(text, values, answer);
+        UICntrl.insertQuestionInSection(q);
+        quizCntrl.saveToLocal(q);
+        UICntrl.clearAdminContainer();
+
+    }
+    return{
+        init: function(){
+            UICntrl.clearAdminContainer();
+            loadEventListener();
+        }
     }
     
-    let landingDom = UICntrl.getLandingDom;
-    landingDom.start_btn.addEventListener('click', function(event){
-        event.preventDefault();
-            
-            if(landingDom.first_name.value === "" || landingDom.last_name.value === "") {
-                alert("You should complete both inputs");
-            } else if(landingDom.first_name.value === "rozhan" && landingDom.last_name.value === "mirzaei") {
-                landing_page.style.display = "none";
-                quiz_page.style.display = "none";
-                result_page.style.display = "none";
-                create_question()
-            } else {
-                /*To DO: CHECK IF QUIZ EXISTS*/
-                landing_page.style.display = "none";
-                admin_page.style.display = "none";
-                result_page.style.display = "none";
-            }
-        
-    })
 
 })(quizController, UIController);
 
+controller.init();
