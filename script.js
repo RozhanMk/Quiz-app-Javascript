@@ -74,6 +74,8 @@ var UIController = (function(){
             inserted_q_section: document.querySelector(".inserted-questions-wrapper"),
             update_btn: document.getElementById("question-update-btn"),
             delete_btn: document.getElementById("question-delete-btn"),
+            logout_btn: document.getElementById("admin-logout-btn"),
+            clear_btn: document.getElementById("questions-clear-btn"),
             
         };
         
@@ -108,7 +110,6 @@ var UIController = (function(){
             DOM_CONST.options_container.appendChild(new_op);
         },
         editQuestionItem: function(question){
-            this.clearAdminContainer()
             DOM_CONST.q_insert_btn.style.visibility = "hidden";
             DOM_CONST.update_btn.style.visibility = "visible";
             DOM_CONST.delete_btn.style.visibility = "visible";
@@ -145,21 +146,27 @@ var UIController = (function(){
                     break;
                 }
             }
+            if(!question.correctAns.trim()){
+                alert("You must choose an answer!");
+                return;
+            }
             for(let i=0; i < options_html.length; i++){
                 if (options_html[i].value.trim()){
                     values.push(options_html[i].value);
                 }
             }
+            if (values.length < 2){
+                alert("You must write more than one option!");
+                return;
+            }
             question.options = values;
             question.questionText = DOM_CONST.question_box.value;
-            this.clearAdminContainer();            
         },
         deleteQuestionItem: function(question){
             let p_tag = document.getElementById("question-p-"+String(question.id));
             p_tag.remove();
-            this.clearAdminContainer();
         },
-        clearAdminContainer: function(question){
+        clearAdminContainer: function(){
             DOM_CONST.q_insert_btn.style.visibility = "visible";
             DOM_CONST.question_box.value = "";
             DOM_CONST.options_container.innerHTML = `<div class="admin-option-wrapper">
@@ -177,8 +184,11 @@ var UIController = (function(){
         goToLandingPage: function(){
             DOM_CONST.admin_page.style.display = "none";
             DOM_CONST.landing_page.style.display = "block";
+        },
+        changeQuestionSection(question){
+            let q_text = document.getElementById("question-"+question.id);
+            q_text.previousElementSibling.textContent = question.questionText;
         }
-
     }
 })();
 
@@ -188,20 +198,21 @@ var controller = (function(quizCntrl, UICntrl){
     let q_target = "";
 
     
-    
     const loadEventListener = function(){
-
         UIselect.start_btn.addEventListener('click', startQuizClick);
         UIselect.options[UIselect.options.length - 1].addEventListener("mouseup", addOptionClick);
-        UIselect.q_insert_btn.addEventListener('click', inserQuestionClick);
+        document.getElementById("question-insert-btn").addEventListener('click', inserQuestionClick);
         let elements_in_edit = document.querySelectorAll('.inserted-questions-wrapper button');
         for (let i = 0; i < elements_in_edit.length; i++) {
             elements_in_edit[i].addEventListener('click', editQuestionClick);
         }
         UIselect.update_btn.addEventListener('click', updateQuestionClick);
-        // UIselect.delete_btn.addEventListener('click', deleteQuestionClick);
-
-
+        UIselect.delete_btn.addEventListener('click', deleteQuestionClick);
+        UIselect.logout_btn.addEventListener('click', logoutClick);
+        UIselect.clear_btn.addEventListener("click", function(){
+            UICntrl.clearAdminContainer();
+            loadEventListener();
+        })
     }
     const addOptionClick = function(e){
         UICntrl.createNewOption();
@@ -229,7 +240,6 @@ var controller = (function(quizCntrl, UICntrl){
             } else {
                 alert("There is no quiz available!");
             }
-            
         }
     }
     const loadQuestionsAdmin = function(){
@@ -238,7 +248,7 @@ var controller = (function(quizCntrl, UICntrl){
     }
     const inserQuestionClick = function(){
         let text = UIselect.question_box.value;
-        if (text.trim()) {
+        if (!text.trim()) {
             alert("You must write the question!");
             return;
         }
@@ -271,22 +281,37 @@ var controller = (function(quizCntrl, UICntrl){
         UICntrl.insertQuestionInSection(q);
         quizCntrl.saveToLocal(q);
         UICntrl.clearAdminContainer();
-
+        loadEventListener();
     }
 
     const editQuestionClick = function(e){
+        UICntrl.clearAdminContainer();
+        loadEventListener();
         let id = e.target.getAttribute('id').split("-")[1];
         q_target = id;
         let q = quizCntrl.getOneItemFromLocal(id);
         UICntrl.editQuestionItem(q);
         UIselect.options[UIselect.options.length - 1].addEventListener("mouseup", addOptionClick);
-
-
     }
     const updateQuestionClick = function(){
         let question = quizCntrl.getOneItemFromLocal(q_target);
         UICntrl.updateQuestionItem(question);
+        UICntrl.clearAdminContainer();
+        loadEventListener();
         quizCntrl.updateItemToLocal(question);
+        UICntrl.changeQuestionSection(question);
+    }
+    const deleteQuestionClick = function(){
+        let question = quizCntrl.getOneItemFromLocal(q_target);
+        UICntrl.deleteQuestionItem(question);
+        UICntrl.clearAdminContainer();
+        loadEventListener();
+        quizCntrl.deleteFromLocal(q_target);
+    }
+    const logoutClick = function(){
+        UICntrl.goToLandingPage();
+        UIselect.first_name.value = "";
+        UIselect.last_name.value = "";
     }
     return{
         init: function(){
@@ -299,7 +324,6 @@ var controller = (function(quizCntrl, UICntrl){
             loadEventListener();
         }
     }
-    
 
 })(quizController, UIController);
 
