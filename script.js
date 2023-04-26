@@ -8,7 +8,6 @@ var quizController = (function(){
         while ( i-- ) {
             values.push( JSON.parse(localStorage.getItem( String(keys[i]))) );
         }
-        console.log(values);
         return values;
     }
     question_count = function(){
@@ -60,7 +59,7 @@ var quizController = (function(){
 })();
 
 var UIController = (function(){
-        const DOM_CONST = {
+        let DOM_CONST = {
             landing_page: document.querySelector("section.landing-page-container"),
             admin_page: document.querySelector("section.admin-panel-container"),
             quiz_page: document.querySelector("section.quiz-container"),
@@ -75,6 +74,7 @@ var UIController = (function(){
             inserted_q_section: document.querySelector(".inserted-questions-wrapper"),
             update_btn: document.getElementById("question-update-btn"),
             delete_btn: document.getElementById("question-delete-btn"),
+            
         };
         
     
@@ -108,14 +108,20 @@ var UIController = (function(){
             DOM_CONST.options_container.appendChild(new_op);
         },
         editQuestionItem: function(question){
-            DOM_CONST.update_btn.style.display = "block";
-            DOM_CONST.delete_btn.style.display = "block";
+            this.clearAdminContainer()
+            DOM_CONST.q_insert_btn.style.visibility = "hidden";
+            DOM_CONST.update_btn.style.visibility = "visible";
+            DOM_CONST.delete_btn.style.visibility = "visible";
             let selected_question = document.getElementById("question-p-"+String(question.id));
             let op_count = DOM_CONST.options_container.children.length;
             if (selected_question !== null) {
                 DOM_CONST.question_box.value = question.questionText;
                 for(let i=0; i<question.options.length - op_count; i++) {
                     this.createNewOption();
+                }
+                let texts_options = document.getElementsByClassName("admin-option");
+                for(let i=0; i<question.options.length; i++) {
+                    texts_options[i].value = question.options[i];
                 }
                 let radios = Array.from(document.getElementsByName('answer'));
                 for(let i = 0; i < question.options.length; i++){
@@ -131,18 +137,22 @@ var UIController = (function(){
             let values = [];
             let radios = document.getElementsByName("answer");
             let options_html = document.getElementsByClassName("admin-option");
+            console.log(radios.length);
+
             for(let i=0; i < radios.length; i++){
-                if (radios.checked) {
+                if (radios[i].checked) {
                     question.correctAns = options_html[i].value;
                     break;
                 }
             }
             for(let i=0; i < options_html.length; i++){
-                values.push(options_html[i].value);
+                if (options_html[i].value.trim()){
+                    values.push(options_html[i].value);
+                }
             }
+            question.options = values;
             question.questionText = DOM_CONST.question_box.value;
-            this.clearAdminContainer();
-            
+            this.clearAdminContainer();            
         },
         deleteQuestionItem: function(question){
             let p_tag = document.getElementById("question-p-"+String(question.id));
@@ -150,6 +160,7 @@ var UIController = (function(){
             this.clearAdminContainer();
         },
         clearAdminContainer: function(question){
+            DOM_CONST.q_insert_btn.style.visibility = "visible";
             DOM_CONST.question_box.value = "";
             DOM_CONST.options_container.innerHTML = `<div class="admin-option-wrapper">
             <input type="radio" class="admin-option-0" name="answer" value="0">
@@ -159,8 +170,8 @@ var UIController = (function(){
                 <input type="radio" class="admin-option-1" name="answer" value="1">
                 <input type="text" class="admin-option admin-option-1" value="">
             </div>`;
-            // DOM_CONST.update_btn.style.display = "none";
-            // DOM_CONST.delete_btn.style.display = "none";
+            DOM_CONST.update_btn.style.visibility = "hidden";
+            DOM_CONST.delete_btn.style.visibility = "hidden";
             
         },
         goToLandingPage: function(){
@@ -174,6 +185,7 @@ var UIController = (function(){
 var controller = (function(quizCntrl, UICntrl){
 
     const UIselect = UICntrl.getSelectors();
+    let q_target = "";
 
     
     
@@ -182,6 +194,12 @@ var controller = (function(quizCntrl, UICntrl){
         UIselect.start_btn.addEventListener('click', startQuizClick);
         UIselect.options[UIselect.options.length - 1].addEventListener("mouseup", addOptionClick);
         UIselect.q_insert_btn.addEventListener('click', inserQuestionClick);
+        let elements_in_edit = document.querySelectorAll('.inserted-questions-wrapper button');
+        for (let i = 0; i < elements_in_edit.length; i++) {
+            elements_in_edit[i].addEventListener('click', editQuestionClick);
+        }
+        UIselect.update_btn.addEventListener('click', updateQuestionClick);
+        // UIselect.delete_btn.addEventListener('click', deleteQuestionClick);
 
 
     }
@@ -197,12 +215,14 @@ var controller = (function(quizCntrl, UICntrl){
         if(UIselect.first_name.value === "" || UIselect.last_name.value === "") {
             alert("You should complete both inputs");
         } else if(UIselect.first_name.value === "rozhan" && UIselect.last_name.value === "mirzaei") {
+            UIselect.admin_page.style.display = "block";
             UIselect.landing_page.style.display = "none";
             UIselect.quiz_page.style.display = "none";
             UIselect.result_page.style.display = "none";
-            loadQuestionsAdmin();
+
         } else {
             if (quizCntrl.getItemsFromLocal().length !== 0){
+                UIselect.quiz_page.style.display = "block";
                 UIselect.landing_page.style.display = "none";
                 UIselect.admin_page.style.display = "none";
                 UIselect.result_page.style.display = "none";
@@ -218,7 +238,7 @@ var controller = (function(quizCntrl, UICntrl){
     }
     const inserQuestionClick = function(){
         let text = UIselect.question_box.value;
-        if (text === "") {
+        if (text.trim()) {
             alert("You must write the question!");
             return;
         }
@@ -253,9 +273,29 @@ var controller = (function(quizCntrl, UICntrl){
         UICntrl.clearAdminContainer();
 
     }
+
+    const editQuestionClick = function(e){
+        let id = e.target.getAttribute('id').split("-")[1];
+        q_target = id;
+        let q = quizCntrl.getOneItemFromLocal(id);
+        UICntrl.editQuestionItem(q);
+        UIselect.options[UIselect.options.length - 1].addEventListener("mouseup", addOptionClick);
+
+
+    }
+    const updateQuestionClick = function(){
+        let question = quizCntrl.getOneItemFromLocal(q_target);
+        UICntrl.updateQuestionItem(question);
+        quizCntrl.updateItemToLocal(question);
+    }
     return{
         init: function(){
+            UIselect.landing_page.style.display = "block";
+            UIselect.quiz_page.style.display = "none";
+            UIselect.admin_page.style.display = "none";
+            UIselect.result_page.style.display = "none";
             UICntrl.clearAdminContainer();
+            loadQuestionsAdmin();
             loadEventListener();
         }
     }
